@@ -12,12 +12,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Username and password required' }, { status: 400 })
     }
 
-    // Accept any credentials for now - actual auth is client-side
-    // This endpoint just validates that credentials are provided
-    return NextResponse.json({
+    // Set HTTP-only cookie for server-side auth check
+    const response = NextResponse.json({
       full_name: username === 'admin' ? 'Admin' : username,
       username: username,
     })
+
+    response.cookies.set('admin_session', btoa(username), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24, // 24 hours
+      path: '/',
+    })
+
+    return response
   } catch {
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
