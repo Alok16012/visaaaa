@@ -1,6 +1,8 @@
-// LocalStorage-based data layer (works without Supabase)
-
-const STORAGE_KEY = 'visa_management_data'
+// Supabase-backed data layer.
+//
+// Every call goes through /api/data/*, which runs on the server and holds the
+// database key. The exported function signatures are unchanged from the old
+// localStorage implementation, so pages consume this module the same way.
 
 export interface Client {
   id: string
@@ -53,195 +55,99 @@ export interface AppData {
   visaTypes: VisaType[]
 }
 
-function getData(): AppData {
-  if (typeof window === 'undefined') return emptyData()
-  const raw = localStorage.getItem(STORAGE_KEY)
-  if (!raw) {
-    const data = getDefaultData()
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-    return data
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`/api/data/${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...init,
+  })
+
+  const body = await res.json().catch(() => ({}))
+
+  if (!res.ok) {
+    throw new Error(body?.error || `Request failed with status ${res.status}`)
   }
-  return JSON.parse(raw)
-}
 
-function saveData(data: AppData) {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-}
-
-function emptyData(): AppData {
-  return { clients: [], agencies: [], jobCategories: [], visaTypes: [] }
-}
-
-function getDefaultData(): AppData {
-  return {
-    agencies: [
-      { id: '1', name: 'OPUS VIS', country: 'Croatia', contact_person: 'John Smith', phone: '+385-1-1234567', email: 'info@opusvis.hr', created_at: new Date().toISOString() },
-      { id: '2', name: 'ABC RECRUITMENT', country: 'Serbia', contact_person: 'Milan Petrovic', phone: '+381-11-1234567', email: 'contact@abcrecruitment.rs', created_at: new Date().toISOString() },
-      { id: '3', name: 'BALKAN HIRING', country: 'Slovenia', contact_person: 'Ana Novak', phone: '+386-1-2345678', email: 'info@balkanhiring.si', created_at: new Date().toISOString() },
-      { id: '4', name: 'EURO JOB CENTER', country: 'Romania', contact_person: 'George Popescu', phone: '+40-21-1234567', email: 'office@eurojobcenter.ro', created_at: new Date().toISOString() },
-      { id: '5', name: 'FUTURE EMPLOYMENT', country: 'Moldova', contact_person: 'Ion Ivanov', phone: '+373-22-123456', email: 'info@futureemployment.md', created_at: new Date().toISOString() },
-    ],
-    jobCategories: [
-      { id: '1', name: 'Construction', created_at: new Date().toISOString() },
-      { id: '2', name: 'Factory Worker', created_at: new Date().toISOString() },
-      { id: '3', name: 'Healthcare', created_at: new Date().toISOString() },
-      { id: '4', name: 'Hospitality', created_at: new Date().toISOString() },
-      { id: '5', name: 'Engineering', created_at: new Date().toISOString() },
-      { id: '6', name: 'Agriculture', created_at: new Date().toISOString() },
-      { id: '7', name: 'Driver', created_at: new Date().toISOString() },
-      { id: '8', name: 'Security', created_at: new Date().toISOString() },
-    ],
-    visaTypes: [
-      { id: '1', name: 'Work Visa', created_at: new Date().toISOString() },
-      { id: '2', name: 'Employment Visa', created_at: new Date().toISOString() },
-      { id: '3', name: 'Business Visa', created_at: new Date().toISOString() },
-      { id: '4', name: 'Tourist Visa', created_at: new Date().toISOString() },
-    ],
-    clients: [],
-  }
+  return body.data as T
 }
 
 // ===== AGENCIES =====
 export async function getAgencies(): Promise<Agency[]> {
-  const data = getData()
-  return data.agencies.sort((a, b) => a.name.localeCompare(b.name))
+  return api<Agency[]>('agencies')
 }
 
 export async function addAgency(agency: Omit<Agency, 'id' | 'created_at'>): Promise<Agency> {
-  const data = getData()
-  const newAgency: Agency = {
-    ...agency,
-    id: Date.now().toString(),
-    created_at: new Date().toISOString(),
-  }
-  data.agencies.push(newAgency)
-  saveData(data)
-  return newAgency
+  return api<Agency>('agencies', { method: 'POST', body: JSON.stringify(agency) })
 }
 
 export async function updateAgency(id: string, updates: Partial<Agency>): Promise<void> {
-  const data = getData()
-  const idx = data.agencies.findIndex(a => a.id === id)
-  if (idx >= 0) {
-    data.agencies[idx] = { ...data.agencies[idx], ...updates }
-    saveData(data)
-  }
+  await api(`agencies/${id}`, { method: 'PATCH', body: JSON.stringify(updates) })
 }
 
 export async function deleteAgency(id: string): Promise<void> {
-  const data = getData()
-  data.agencies = data.agencies.filter(a => a.id !== id)
-  saveData(data)
+  await api(`agencies/${id}`, { method: 'DELETE' })
 }
 
 // ===== CLIENTS =====
 export async function getClients(): Promise<Client[]> {
-  const data = getData()
-  return data.clients.sort((a, b) => b.created_at.localeCompare(a.created_at))
+  return api<Client[]>('clients')
 }
 
 export async function addClient(client: Omit<Client, 'id' | 'created_at'>): Promise<Client> {
-  const data = getData()
-  const newClient: Client = {
-    ...client,
-    id: Date.now().toString(),
-    created_at: new Date().toISOString(),
-  }
-  data.clients.push(newClient)
-  saveData(data)
-  return newClient
+  return api<Client>('clients', { method: 'POST', body: JSON.stringify(client) })
 }
 
 export async function updateClient(id: string, updates: Partial<Client>): Promise<void> {
-  const data = getData()
-  const idx = data.clients.findIndex(c => c.id === id)
-  if (idx >= 0) {
-    data.clients[idx] = { ...data.clients[idx], ...updates }
-    saveData(data)
-  }
+  await api(`clients/${id}`, { method: 'PATCH', body: JSON.stringify(updates) })
 }
 
 export async function deleteClient(id: string): Promise<void> {
-  const data = getData()
-  data.clients = data.clients.filter(c => c.id !== id)
-  saveData(data)
+  await api(`clients/${id}`, { method: 'DELETE' })
 }
 
 export async function searchClients(query: string, type: string, statusFilter?: string): Promise<Client[]> {
-  const data = getData()
-  let results = [...data.clients]
-
+  const params = new URLSearchParams()
   if (query.trim()) {
-    if (type === 'name') {
-      results = results.filter(c => c.client_name.toLowerCase().includes(query.toLowerCase()))
-    } else if (type === 'passport') {
-      results = results.filter(c => c.passport_number.toLowerCase().includes(query.toLowerCase()))
-    } else if (type === 'agency') {
-      const agencyIds = data.agencies.filter(a => a.name.toLowerCase().includes(query.toLowerCase())).map(a => a.id)
-      results = results.filter(c => agencyIds.includes(c.agency_id))
-    } else if (type === 'country') {
-      results = results.filter(c => c.country.toLowerCase().includes(query.toLowerCase()))
-    }
+    params.set('q', query.trim())
+    params.set('type', type)
   }
+  if (statusFilter) params.set('status', statusFilter)
 
-  if (statusFilter) {
-    results = results.filter(c => c.application_status === statusFilter)
-  }
-
-  return results.sort((a, b) => b.created_at.localeCompare(a.created_at))
+  const qs = params.toString()
+  return api<Client[]>(qs ? `clients?${qs}` : 'clients')
 }
 
 // ===== JOB CATEGORIES =====
 export async function getJobCategories(): Promise<JobCategory[]> {
-  const data = getData()
-  return data.jobCategories.sort((a, b) => a.name.localeCompare(b.name))
+  return api<JobCategory[]>('job-categories')
 }
 
 export async function addJobCategory(name: string): Promise<JobCategory> {
-  const data = getData()
-  const item: JobCategory = { id: Date.now().toString(), name, created_at: new Date().toISOString() }
-  data.jobCategories.push(item)
-  saveData(data)
-  return item
+  return api<JobCategory>('job-categories', { method: 'POST', body: JSON.stringify({ name }) })
 }
 
 export async function updateJobCategory(id: string, name: string): Promise<void> {
-  const data = getData()
-  const idx = data.jobCategories.findIndex(c => c.id === id)
-  if (idx >= 0) { data.jobCategories[idx].name = name; saveData(data) }
+  await api(`job-categories/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) })
 }
 
 export async function deleteJobCategory(id: string): Promise<void> {
-  const data = getData()
-  data.jobCategories = data.jobCategories.filter(c => c.id !== id)
-  saveData(data)
+  await api(`job-categories/${id}`, { method: 'DELETE' })
 }
 
 // ===== VISA TYPES =====
 export async function getVisaTypes(): Promise<VisaType[]> {
-  const data = getData()
-  return data.visaTypes.sort((a, b) => a.name.localeCompare(b.name))
+  return api<VisaType[]>('visa-types')
 }
 
 export async function addVisaType(name: string): Promise<VisaType> {
-  const data = getData()
-  const item: VisaType = { id: Date.now().toString(), name, created_at: new Date().toISOString() }
-  data.visaTypes.push(item)
-  saveData(data)
-  return item
+  return api<VisaType>('visa-types', { method: 'POST', body: JSON.stringify({ name }) })
 }
 
 export async function updateVisaType(id: string, name: string): Promise<void> {
-  const data = getData()
-  const idx = data.visaTypes.findIndex(c => c.id === id)
-  if (idx >= 0) { data.visaTypes[idx].name = name; saveData(data) }
+  await api(`visa-types/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) })
 }
 
 export async function deleteVisaType(id: string): Promise<void> {
-  const data = getData()
-  data.visaTypes = data.visaTypes.filter(c => c.id !== id)
-  saveData(data)
+  await api(`visa-types/${id}`, { method: 'DELETE' })
 }
 
 // ===== DASHBOARD STATS =====
@@ -282,14 +188,16 @@ export async function getAgencyOverview() {
   return Array.from(agencyMap.entries()).map(([name, counts]) => ({ name, ...counts })).sort((a, b) => b.total - a.total)
 }
 
+// Continues from the highest ETVC number already used rather than from the row
+// count, so deleting a client cannot hand out an application id twice.
 export async function generateAppId(): Promise<string> {
   const clients = await getClients()
-  const num = clients.length + 1
-  return `ETVC-${String(num).padStart(3, '0')}`
+  const highest = clients.reduce((max, c) => {
+    const match = /^ETVC-(\d+)$/.exec(c.application_id || '')
+    return match ? Math.max(max, Number(match[1])) : max
+  }, 0)
+  return `ETVC-${String(highest + 1).padStart(3, '0')}`
 }
-
-// Export for use in components
-export { getData, saveData }
 
 export const APPLICATION_STATUSES = ['New', 'Documents Pending', 'Submitted', 'Processing', 'Approval Pending', 'Approved', 'Visa Issued', 'Rejected', 'Hold', 'Completed']
 export const APPROVAL_STATUSES = ['Pending', 'Approved', 'Rejected']

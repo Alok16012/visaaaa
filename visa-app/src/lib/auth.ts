@@ -1,22 +1,19 @@
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { NextResponse } from 'next/server'
 
-export async function requireAuth() {
-  const cookieStore = cookies()
-  const sessionCookie = cookieStore.get('admin_session')
+// The login route sets an HTTP-only `admin_session` cookie; every data route
+// requires it so the database is only reachable through a signed-in session.
+export function hasSession(): boolean {
+  return Boolean(cookies().get('admin_session'))
+}
 
-  if (!sessionCookie) {
-    redirect('/login')
-  }
+export function unauthorized() {
+  return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+}
 
-  try {
-    const session = JSON.parse(sessionCookie.value)
-    if (session.expiresAt && Date.now() > session.expiresAt) {
-      redirect('/login')
-    }
-    return session
-  } catch {
-    redirect('/login')
-  }
+// Surfaces the real message — missing SUPABASE_SERVICE_ROLE_KEY is the likely
+// cause, and a bare 500 gives no hint of that.
+export function serverError(err: unknown) {
+  const message = err instanceof Error ? err.message : 'Unexpected server error'
+  return NextResponse.json({ error: message }, { status: 500 })
 }

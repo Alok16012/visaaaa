@@ -14,30 +14,49 @@ export default function BackupPage() {
     setStats({ clients: clients.length, agencies: agencies.length, jobCategories: jobs.length, visaTypes: visas.length })
   }
 
-  const handleBackup = () => {
-    const data = localStorage.getItem('visa_management_data')
-    if (!data) { alert('No data to backup!'); return }
-    const blob = new Blob([data], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `visa-backup-${new Date().toISOString().split('T')[0]}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+  const handleBackup = async () => {
+    try {
+      const res = await fetch('/api/backup')
+      const body = await res.json()
+      if (!res.ok) throw new Error(body?.error || 'Backup failed')
+
+      const blob = new Blob([JSON.stringify(body.data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `visa-backup-${new Date().toISOString().split('T')[0]}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Backup failed')
+    }
   }
 
   const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!confirm('This will replace all current data. Are you sure?')) return
+    if (!confirm('This will replace all data in the database, for everyone. Are you sure?')) {
+      e.target.value = ''
+      return
+    }
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const data = JSON.parse(ev.target?.result as string)
-        localStorage.setItem('visa_management_data', JSON.stringify(data))
+        const res = await fetch('/api/backup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+        const body = await res.json()
+        if (!res.ok) throw new Error(body?.error || 'Restore failed')
         alert('Backup restored successfully!')
         loadStats()
-      } catch { alert('Invalid backup file!') }
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Invalid backup file!')
+      } finally {
+        e.target.value = ''
+      }
     }
     reader.readAsText(file)
   }
@@ -88,7 +107,7 @@ export default function BackupPage() {
         <div className="flex items-start gap-3">
           <Shield className="w-5 h-5 text-amber-600 mt-0.5" />
           <div><h3 className="text-sm font-medium text-amber-800">Important</h3>
-          <p className="text-xs text-amber-700 mt-1">Data is stored in your browser's localStorage. If you clear browser data or use a different browser, your data will be lost. Always keep regular backups!</p></div>
+          <p className="text-xs text-amber-700 mt-1">Data is stored in the Supabase database and shared by everyone who signs in. Restoring a backup replaces all data for all users, so download a fresh backup first.</p></div>
         </div>
       </div>
     </div>
