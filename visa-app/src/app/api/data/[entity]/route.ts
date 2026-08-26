@@ -24,8 +24,14 @@ export async function GET(request: Request, { params }: Ctx) {
       const term = (url.searchParams.get('q') || '').trim()
       const type = url.searchParams.get('type') || 'name'
       const status = url.searchParams.get('status')
+      const agencyId = url.searchParams.get('agency')
+      const agentId = url.searchParams.get('agent')
+      const country = url.searchParams.get('country')
 
       if (status) query = query.eq('application_status', status)
+      if (agencyId) query = query.eq('agency_id', agencyId)
+      if (agentId) query = query.eq('agent_id', agentId)
+      if (country) query = query.eq('country', country)
 
       if (term) {
         if (type === 'passport') {

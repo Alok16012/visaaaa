@@ -9,11 +9,14 @@ export interface Client {
   application_id: string
   client_name: string
   agency_id: string
+  agent_id: string
   country: string
   citizenship: string
   passport_number: string
   mobile_number: string
+  job_category: string
   job_position: string
+  visa_type: string
   application_status: string
   approval_status: string
   advance_payment: number
@@ -31,6 +34,14 @@ export interface Agency {
   name: string
   country: string
   contact_person: string
+  phone: string
+  email: string
+  created_at: string
+}
+
+export interface Agent {
+  id: string
+  name: string
   phone: string
   email: string
   created_at: string
@@ -87,6 +98,23 @@ export async function deleteAgency(id: string): Promise<void> {
   await api(`agencies/${id}`, { method: 'DELETE' })
 }
 
+// ===== AGENTS =====
+export async function getAgents(): Promise<Agent[]> {
+  return api<Agent[]>('agents')
+}
+
+export async function addAgent(agent: Omit<Agent, 'id' | 'created_at'>): Promise<Agent> {
+  return api<Agent>('agents', { method: 'POST', body: JSON.stringify(agent) })
+}
+
+export async function updateAgent(id: string, updates: Partial<Agent>): Promise<void> {
+  await api(`agents/${id}`, { method: 'PATCH', body: JSON.stringify(updates) })
+}
+
+export async function deleteAgent(id: string): Promise<void> {
+  await api(`agents/${id}`, { method: 'DELETE' })
+}
+
 // ===== CLIENTS =====
 export async function getClients(): Promise<Client[]> {
   return api<Client[]>('clients')
@@ -104,13 +132,27 @@ export async function deleteClient(id: string): Promise<void> {
   await api(`clients/${id}`, { method: 'DELETE' })
 }
 
-export async function searchClients(query: string, type: string, statusFilter?: string): Promise<Client[]> {
+export interface ClientFilters {
+  agencyId?: string
+  agentId?: string
+  country?: string
+}
+
+export async function searchClients(
+  query: string,
+  type: string,
+  statusFilter?: string,
+  filters: ClientFilters = {}
+): Promise<Client[]> {
   const params = new URLSearchParams()
   if (query.trim()) {
     params.set('q', query.trim())
     params.set('type', type)
   }
   if (statusFilter) params.set('status', statusFilter)
+  if (filters.agencyId) params.set('agency', filters.agencyId)
+  if (filters.agentId) params.set('agent', filters.agentId)
+  if (filters.country) params.set('country', filters.country)
 
   const qs = params.toString()
   return api<Client[]>(qs ? `clients?${qs}` : 'clients')

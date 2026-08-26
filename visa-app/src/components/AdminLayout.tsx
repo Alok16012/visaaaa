@@ -7,9 +7,11 @@ import {
   LayoutDashboard,
   Users,
   UserPlus,
+  UserCheck,
   Building2,
   Briefcase,
   FileText,
+  ClipboardList,
   CreditCard,
   CalendarCheck,
   BarChart3,
@@ -21,17 +23,18 @@ import {
   ChevronDown,
   Menu,
   X,
+  User,
 } from 'lucide-react'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/clients', label: 'Clients / Applications', icon: Users },
   { href: '/add-client', label: 'Add New Client', icon: UserPlus },
-  { href: '/agencies', label: 'Agents', icon: Building2 },
+  { href: '/agents', label: 'Agents', icon: UserCheck },
   { href: '/agencies', label: 'Agency / Foreign Office', icon: Building2 },
   { href: '/job-categories', label: 'Job Category', icon: Briefcase },
   { href: '/visa-types', label: 'Visa Type', icon: FileText },
-  { href: '/payments', label: 'Applications', icon: FileText },
+  { href: '/clients', label: 'Applications', icon: ClipboardList },
   { href: '/payments', label: 'Payments', icon: CreditCard },
   { href: '/follow-up', label: 'Follow Up', icon: CalendarCheck },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
@@ -41,6 +44,30 @@ const navItems = [
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
+const PAGE_TITLES: Record<string, string> = {
+  '/dashboard': 'Dashboard',
+  '/clients': 'Clients / Applications',
+  '/add-client': 'Add New Client',
+  '/agents': 'Agents',
+  '/agencies': 'Agency / Foreign Office',
+  '/job-categories': 'Job Category',
+  '/visa-types': 'Visa Type',
+  '/payments': 'Payments',
+  '/follow-up': 'Follow Up',
+  '/reports': 'Reports',
+  '/search': 'Search',
+  '/export': 'Export to Excel',
+  '/backup': 'Backup',
+  '/settings': 'Settings',
+}
+
+function formatLastLogin(ms: number): string {
+  const d = new Date(ms)
+  const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+  return `${date} ${time}`
+}
+
 export default function AdminLayout({
   children,
 }: {
@@ -48,18 +75,21 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [admin, setAdmin] = useState<{ full_name: string } | null>(null)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
+  const [admin, setAdmin] = useState<{ full_name: string; lastLogin: string } | null>(null)
 
   useEffect(() => {
-    const adminData = localStorage.getItem('admin_session')
-    if (adminData) {
-      try {
-        const session = JSON.parse(adminData)
-        setAdmin({ full_name: session.full_name || 'Admin' })
-      } catch {
-        setAdmin({ full_name: 'Admin' })
-      }
+    const raw = localStorage.getItem('admin_session')
+    if (!raw) return
+    try {
+      const session = JSON.parse(raw)
+      setAdmin({
+        full_name: session.full_name || 'Admin',
+        lastLogin: session.loginAt ? formatLastLogin(session.loginAt) : '',
+      })
+    } catch {
+      setAdmin({ full_name: 'Admin', lastLogin: '' })
     }
   }, [])
 
@@ -68,21 +98,28 @@ export default function AdminLayout({
     router.push('/login')
   }
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
+  // Two nav entries point at /clients, so match on the first one only —
+  // otherwise both would render as the active item at the same time.
+  const activeIndex = navItems.findIndex(
+    (item) => pathname === item.href || pathname.startsWith(item.href + '/')
+  )
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar overlay for mobile */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      {mobileOpen && (
+        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-[260px] bg-sidebar transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:z-0 flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-[260px] bg-sidebar transform transition-transform duration-300 ease-in-out lg:static lg:z-0 flex flex-col ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${collapsed ? 'lg:hidden' : 'lg:translate-x-0 lg:flex'}`}
+      >
         {/* Logo */}
-        <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
+        <div className="flex items-center justify-between px-5 py-5">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center">
+            <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center flex-shrink-0">
               <svg className="w-5 h-5 text-sidebar" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
               </svg>
@@ -92,91 +129,105 @@ export default function AdminLayout({
               <p className="text-gray-400 text-[10px] font-medium uppercase tracking-wider">System</p>
             </div>
           </div>
-          <button className="lg:hidden text-gray-400 hover:text-white" onClick={() => setSidebarOpen(false)}>
+          <button className="lg:hidden text-gray-400 hover:text-white" onClick={() => setMobileOpen(false)}>
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2">
-          <ul className="space-y-0.5">
-            {navItems.map((item) => {
-              const active = isActive(item.href)
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      active
-                        ? 'bg-primary-600 text-white'
-                        : 'text-gray-300 hover:text-white hover:bg-sidebar-hover'
-                    }`}
-                    onClick={() => setSidebarOpen(false)}
-                  >
-                    <item.icon className="w-[18px] h-[18px]" />
-                    {item.label}
-                  </Link>
-                </li>
-              )
-            })}
+        <nav className="flex-1 overflow-y-auto px-3 pb-3">
+          <ul className="space-y-1">
+            {navItems.map((item, i) => (
+              <li key={item.label}>
+                <Link
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    i === activeIndex
+                      ? 'bg-primary-600 text-white'
+                      : 'text-gray-300 hover:text-white hover:bg-sidebar-hover'
+                  }`}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+            <li>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-sidebar-hover transition-colors w-full"
+              >
+                <LogOut className="w-[18px] h-[18px] flex-shrink-0" />
+                Logout
+              </button>
+            </li>
           </ul>
         </nav>
 
-        {/* Logout at bottom */}
-        <div className="p-3 border-t border-white/10">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-sidebar-hover transition-colors w-full"
-          >
-            <LogOut className="w-[18px] h-[18px]" />
-            Logout
-          </button>
-        </div>
-
-        {/* Admin info at very bottom */}
-        <div className="p-4 border-t border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
-              <Users className="w-5 h-5 text-gray-300" />
+        {/* Admin card */}
+        <div className="p-3">
+          <div className="bg-white/5 rounded-xl p-3.5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
+                <User className="w-5 h-5 text-gray-300" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-white text-sm font-semibold truncate">{admin?.full_name || 'Admin'}</p>
+                <p className="text-gray-400 text-xs">Admin</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-white text-sm font-medium truncate">{admin?.full_name || 'Admin'}</p>
-              <p className="text-gray-400 text-xs">Administrator</p>
-            </div>
+            {admin?.lastLogin && (
+              <p className="text-gray-400 text-[11px] mt-3 leading-snug">
+                Last Login:<br />
+                {admin.lastLogin}
+              </p>
+            )}
           </div>
         </div>
       </aside>
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top header */}
         <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-30">
-          <div className="flex items-center gap-3">
-            <button className="lg:hidden text-gray-600 hover:text-gray-900 p-1" onClick={() => setSidebarOpen(true)}>
+          <div className="flex items-center gap-4">
+            <button
+              className="lg:hidden text-gray-600 hover:text-gray-900"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+            >
               <Menu className="w-6 h-6" />
             </button>
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 capitalize">
-              {pathname.split('/').pop()?.replace(/-/g, ' ') || 'Dashboard'}
+            <button
+              className="hidden lg:inline-flex text-gray-600 hover:text-gray-900"
+              onClick={() => setCollapsed((c) => !c)}
+              aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
+              {PAGE_TITLES[pathname] || 'Dashboard'}
             </h2>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2">
-              <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                <Users className="w-4 h-4 text-gray-500" />
-              </div>
-              <div className="text-sm">
-                <p className="font-medium text-gray-800">{admin?.full_name || 'Admin'}</p>
-                <p className="text-xs text-gray-400">Administrator</p>
-              </div>
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center">
+              <User className="w-[18px] h-[18px] text-gray-500" />
             </div>
+            <div className="hidden sm:block text-sm leading-tight">
+              <p className="font-semibold text-gray-800">{admin?.full_name || 'Admin'}</p>
+              <p className="text-xs text-gray-400">Admin</p>
+            </div>
+            <ChevronDown className="w-4 h-4 text-gray-400" />
           </div>
         </header>
 
-        {/* Page content */}
         <main className="flex-1 p-4 sm:p-6 overflow-x-hidden">
           {children}
         </main>
+
+        <footer className="px-4 sm:px-6 py-4 text-center text-xs text-gray-400">
+          © {new Date().getFullYear()} Visa Management System. All Rights Reserved.
+        </footer>
       </div>
     </div>
   )

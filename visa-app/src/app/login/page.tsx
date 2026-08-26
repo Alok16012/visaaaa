@@ -40,6 +40,7 @@ export default function LoginPage() {
 
       localStorage.setItem('admin_session', JSON.stringify({
         full_name: data.full_name,
+        loginAt: Date.now(),
         expiresAt: Date.now() + (24 * 60 * 60 * 1000),
       }))
 

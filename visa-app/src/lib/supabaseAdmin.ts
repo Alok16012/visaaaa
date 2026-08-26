@@ -8,6 +8,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 export const TABLES = {
   agencies: 'agencies',
+  agents: 'agents',
   clients: 'clients',
   'job-categories': 'job_categories',
   'visa-types': 'visa_types',
@@ -31,15 +32,23 @@ const SCHEMA: Record<EntitySlug, Record<string, ColumnKind>> = {
     phone: 'text',
     email: 'text',
   },
+  agents: {
+    name: 'text',
+    phone: 'text',
+    email: 'text',
+  },
   clients: {
     application_id: 'text',
     client_name: 'text',
     agency_id: 'uuid',
+    agent_id: 'uuid',
     country: 'text',
     citizenship: 'text',
     passport_number: 'text',
     mobile_number: 'text',
+    job_category: 'text',
     job_position: 'text',
+    visa_type: 'text',
     application_status: 'text',
     approval_status: 'text',
     advance_payment: 'number',

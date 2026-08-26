@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Client, getClients, addClient, updateClient, generateAppId, getAgencies, Agency, getJobCategories, getVisaTypes } from '@/lib/store'
+import { Client, getClients, addClient, updateClient, generateAppId, getAgencies, Agency, getAgents, Agent, getJobCategories, getVisaTypes } from '@/lib/store'
 import { ArrowLeft, Save, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
@@ -12,6 +12,7 @@ export default function AddClientPage() {
   const editId = searchParams.get('id')
 
   const [agencies, setAgencies] = useState<Agency[]>([])
+  const [agents, setAgents] = useState<Agent[]>([])
   const [jobCategories, setJobCategories] = useState<string[]>([])
   const [visaTypes, setVisaTypes] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
@@ -19,11 +20,14 @@ export default function AddClientPage() {
     application_id: '',
     client_name: '',
     agency_id: '',
+    agent_id: '',
     country: '',
     citizenship: '',
     passport_number: '',
     mobile_number: '',
+    job_category: '',
     job_position: '',
+    visa_type: '',
     application_status: 'New',
     approval_status: 'Pending',
     advance_payment: 0,
@@ -37,13 +41,15 @@ export default function AddClientPage() {
 
   useEffect(() => {
     async function init() {
-      const [agenciesData, clientsData, jobCatsData, visaTypesData] = await Promise.all([
+      const [agenciesData, agentsData, clientsData, jobCatsData, visaTypesData] = await Promise.all([
         getAgencies(),
+        getAgents(),
         getClients(),
         getJobCategories(),
         getVisaTypes(),
       ])
       setAgencies(agenciesData)
+      setAgents(agentsData)
       setJobCategories(jobCatsData.map(c => c.name))
       setVisaTypes(visaTypesData.map(v => v.name))
 
@@ -54,11 +60,14 @@ export default function AddClientPage() {
             application_id: client.application_id,
             client_name: client.client_name,
             agency_id: client.agency_id,
+            agent_id: client.agent_id,
             country: client.country,
             citizenship: client.citizenship,
             passport_number: client.passport_number,
             mobile_number: client.mobile_number,
+            job_category: client.job_category,
             job_position: client.job_position,
+            visa_type: client.visa_type,
             application_status: client.application_status,
             approval_status: client.approval_status,
             advance_payment: client.advance_payment,
@@ -143,6 +152,13 @@ export default function AddClientPage() {
               </select>
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Agent</label>
+              <select value={formData.agent_id} onChange={e => updateField('agent_id', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white">
+                <option value="">Select Agent</option>
+                {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
               <input type="text" value={formData.country} onChange={e => updateField('country', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Destination country" />
             </div>
@@ -159,9 +175,22 @@ export default function AddClientPage() {
               <input type="text" value={formData.mobile_number} onChange={e => updateField('mobile_number', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Mobile number" />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Job Category</label>
+              <select value={formData.job_category} onChange={e => updateField('job_category', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white">
+                <option value="">Select Job Category</option>
+                {jobCategories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Job Position</label>
-              <input type="text" list="job-categories" value={formData.job_position} onChange={e => updateField('job_position', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Job position" />
-              <datalist id="job-categories">{jobCategories.map(c => <option key={c} value={c} />)}</datalist>
+              <input type="text" value={formData.job_position} onChange={e => updateField('job_position', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="e.g., Welder" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Visa Type</label>
+              <select value={formData.visa_type} onChange={e => updateField('visa_type', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white">
+                <option value="">Select Visa Type</option>
+                {visaTypes.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
             </div>
           </div>
         </div>

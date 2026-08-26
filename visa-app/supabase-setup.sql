@@ -59,14 +59,31 @@ CREATE TABLE IF NOT EXISTS visa_types (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 6. Create indexes for better performance
+-- 6. Create agents table and the client columns that reference it.
+--    Kept in sync with supabase-migration-agents.sql, which applies the same
+--    changes to a database created before agents existed.
+CREATE TABLE IF NOT EXISTS agents (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  phone TEXT DEFAULT '',
+  email TEXT DEFAULT '',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS agents_name_key ON agents (name);
+
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS agent_id     UUID REFERENCES agents(id);
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS visa_type    TEXT DEFAULT '';
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS job_category TEXT DEFAULT '';
+
+-- 7. Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_clients_agent ON clients(agent_id);
 CREATE INDEX IF NOT EXISTS idx_clients_application_id ON clients(application_id);
 CREATE INDEX IF NOT EXISTS idx_clients_passport ON clients(passport_number);
 CREATE INDEX IF NOT EXISTS idx_clients_agency ON clients(agency_id);
 CREATE INDEX IF NOT EXISTS idx_clients_status ON clients(application_status);
 CREATE INDEX IF NOT EXISTS idx_clients_name ON clients(client_name);
 
--- 7. Lock every table down.
+-- 8. Lock every table down.
 --
 -- The app never talks to Supabase from the browser: all reads and writes go
 -- through /api/data/* on the server, which uses the service_role key and so
@@ -75,11 +92,12 @@ CREATE INDEX IF NOT EXISTS idx_clients_name ON clients(client_name);
 -- anyone could read every client's passport and mobile number.
 ALTER TABLE admin_users     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agencies        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clients         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE job_categories  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE visa_types      ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON admin_users, agencies, clients, job_categories, visa_types
+REVOKE ALL ON admin_users, agencies, agents, clients, job_categories, visa_types
   FROM anon, authenticated;
 
 -- ============================================
