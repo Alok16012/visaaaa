@@ -82,15 +82,14 @@ ALTER TABLE visa_types      ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON admin_users, agencies, clients, job_categories, visa_types
   FROM anon, authenticated;
 
--- 8. Insert default admin user
--- Password is 'admin123' - CHANGE THIS AFTER FIRST LOGIN!
-INSERT INTO admin_users (username, password_hash, full_name)
-VALUES ('admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'Admin')
-ON CONFLICT (username) DO NOTHING;
-
 -- ============================================
 -- SAMPLE DATA (Optional - remove if not needed)
 -- ============================================
+
+-- job_categories and visa_types declare name UNIQUE, so their ON CONFLICT
+-- clauses below have something to catch. agencies did not, which meant
+-- re-running this file silently inserted a second copy of every agency.
+CREATE UNIQUE INDEX IF NOT EXISTS agencies_name_key ON agencies (name);
 
 -- Insert sample agencies
 INSERT INTO agencies (name, country, contact_person, phone, email) VALUES
@@ -123,7 +122,8 @@ ON CONFLICT DO NOTHING;
 --      SUPABASE_SERVICE_ROLE_KEY
 -- 3. Redeploy.
 --
--- NOTE: admin_users is created but not yet used. /api/auth/login currently
--- accepts any non-empty username and password, so anyone who finds the site
--- can sign in. Wiring login up to admin_users is still to do.
+-- NOTE: admin_users is created but deliberately left empty. /api/auth/login
+-- currently accepts any non-empty username and password, so anyone who finds
+-- the site can sign in. Wiring login up to admin_users is still to do; seeding
+-- a default admin/admin123 row now would just leave a weak account waiting.
 -- ============================================
